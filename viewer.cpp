@@ -14,7 +14,7 @@ Viewer::Viewer(char *,const QGLFormat &format)
       _motion(glm::vec3(0,0,0)),
       _mode(false),
       _showShadowMap(false),
-      _ndResol(1024),
+      _ndResol(256),
       _shadowMapResol(1024) {
 
     setlocale(LC_ALL,"C");
