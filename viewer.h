@@ -92,6 +92,7 @@ class Viewer : public QGLWidget {
   GLuint _texDepthLight;
   GLuint _texDepthCamera;
   GLuint _texSlant;
+  GLuint _texVisibility;
   GLuint _texPosition;
   GLuint _texPositionLight;
   GLuint _texNormal;
@@ -100,7 +101,7 @@ class Viewer : public QGLWidget {
 
   GLint _texHeightLoc;
   GLint _texHeightGBuffersLoc;
-  GLint _texDepthGBuffersLoc;
+  GLint _texDepthLightGBuffersLoc;
   GLint _mvpMatGBuffersLoc;
   GLint _texHeightShadowLoc;
   GLint _rendMdvMatLoc;
@@ -111,12 +112,14 @@ class Viewer : public QGLWidget {
   GLint _shadGridVertexLoc;
 
   GLint _texSlantLoc;
+  GLint _texVisibilityLoc;
   GLint _texNormalLoc;
   GLint _texPositionLoc;
   GLint _texPositionLightLoc;
   GLint _texColorLoc;
 
   GLint _texSlantRenderLoc;
+  GLint _texVisibilityRenderLoc;
   GLint _texNormalRenderLoc;
   GLint _texPositionRenderLoc;
   GLint _texPositionLightRenderLoc;

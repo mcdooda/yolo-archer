@@ -8,6 +8,7 @@ uniform sampler2D texPositionLight;
 uniform sampler2D texDepthCamera;
 uniform sampler2DShadow texDepthLight;
 uniform sampler2D texColor;
+uniform sampler2D texVisibility;
 uniform vec3 light;
 
 vec2 poissonDisk[16] = vec2[](
@@ -37,22 +38,27 @@ float random(vec3 seed, int i){
 
 float getVisibility() {
     ivec2 screenSize = textureSize(texNormal, 0);
-    float x = float(gl_FragCoord.x) / screenSize.x;
-    float y = float(gl_FragCoord.y) / screenSize.y;
-    vec4 shadCoord = texture(texPositionLight,vec2(x, y),0);
-    float bias = 0.008;
+    ivec2 loc = ivec2(gl_FragCoord.xy);
+    vec4 shadCoord = texelFetch(texPositionLight,loc,0);
+    float bias = 0.01;
 
-    float v = 1;
+    float vMean = 0;
+    int i = 0;
 
+    float v = 0;
     for (int i=0;i<16;i++){
         int ind = int(16.0*random(gl_FragCoord.xyy, i))%16;
-        if (texture(texDepthLight,vec3(shadCoord.xy+poissonDisk[ind] / 300,(shadCoord.z-bias)/shadCoord.w)) < 1){
-            v-=0.1;
-        }
+        float t = texture(texDepthLight,vec3(shadCoord.xy + poissonDisk[ind] / 300,(shadCoord.z-bias)/shadCoord.w));
+        v += t;
     }
-    if (v < 0.2) v = 0.2;
+    v = v / 16;
 
-    return v;
+    return v * 0.4 + 0.6;
+}
+
+float getVisibility2() {
+    ivec2 loc = ivec2(gl_FragCoord.xy);
+    return texelFetch(texVisibility, loc, 0).r;
 }
 
 vec4 getColor() {
@@ -62,7 +68,7 @@ vec4 getColor() {
     vec4 c = vec4(0);
     int n = 32;
     for (int i = 0; i < n; i++) {
-        c += texture(texColor, vec2((position.z * 7 + slant) / 8, (position.x + position.y) * random(position.xyz, i)));
+        c += texture(texColor, vec2((position.z * 7 + slant) / 8, (position.x + position.y * 2) * random(position.xyz, i)));
     }
     c /= n;
     return c;
@@ -70,7 +76,7 @@ vec4 getColor() {
 
 vec3 getNormal() {
     ivec2 loc = ivec2(gl_FragCoord.xy);
-    return texelFetch(texNormal,loc,0).xyz;
+    return normalize(texelFetch(texNormal,loc,0).xyz * 2 - 1);
 }
 
 void main(void)
@@ -79,15 +85,14 @@ void main(void)
 
     vec4 fragmentColor = getColor();
     vec3 ambientColor = vec3(0.7,0.8,0.9);
-    vec3 diffuseColor = vec3(0.5,0.5,0.5);
-    vec3 specularColor = vec3(0.8,0.8,0.8);
+    vec3 diffuseColor = vec3(0.5);
+    vec3 specularColor = vec3(0.2);
     vec3 n = getNormal();
     vec3 r = vec3(0.0,0.0,1.0);
 
     vec4 color = fragmentColor * vec4(ambientColor + diffuseColor*dot(n,light) + specularColor*pow(dot(reflect(light,n),r),2),1.0);
 
-    //float v = getVisibility();
-    float v = 1;
+    float v = getVisibility2();
 
     outBuffer = color * v;
 }

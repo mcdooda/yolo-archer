@@ -14,12 +14,6 @@ out vec3 normal;
 out vec3 normalCam;
 out vec4 posLight;
 
-// output vectors (camera space)
-out vec3 normalView;
-out vec3 tangentView;
-out vec3 eyeView;
-out vec2 uvcoord;
-
 float altitude(vec2 p) {
     return texture(texHeight,p).r;
 }
@@ -39,7 +33,7 @@ vec3 computeNormal() {
 void main() {
     pos = position;
     pos.z = altitude(pos.xy / 2 + 0.5);
-    posLight = mvpMat*vec4(pos,1.0);
+    posLight = mvpMat * vec4(pos, 1.0);
     normal = computeNormal();
     normalCam = normalMat * normal;
     gl_Position = projMat*mdvMat*vec4(pos,1.0);

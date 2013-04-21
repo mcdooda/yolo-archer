@@ -14,8 +14,8 @@ Viewer::Viewer(char *,const QGLFormat &format)
       _motion(glm::vec3(0,0,0)),
       _mode(false),
       _showShadowMap(false),
-      _ndResol(256),
-      _shadowMapResol(1024) {
+      _ndResol(512),
+      _shadowMapResol(512) {
 
     setlocale(LC_ALL,"C");
 
@@ -49,6 +49,7 @@ void Viewer::generateIds() {
     glGenTextures(1,&_texPosition);
     glGenTextures(1,&_texPositionLight);
     glGenTextures(1,&_texSlant);
+    glGenTextures(1,&_texVisibility);
     glGenTextures(1,&_texNormal);
     // VBOs
     glGenBuffers(1,&_quad);
@@ -60,17 +61,23 @@ void Viewer::generateIds() {
 }
 
 void Viewer::cleanIds() {
+    // FBOs
     glDeleteFramebuffers(1,&_fbo);
     glDeleteFramebuffers(1,&_fbo2);
     glDeleteFramebuffers(1,&_fbo3);
+    // textures
     glDeleteTextures(1,&_texHeight);
     glDeleteTextures(1,&_texDepthLight);
+    glDeleteTextures(1,&_texDepthCamera);
+    glDeleteTextures(1,&_texPosition);
+    glDeleteTextures(1,&_texPositionLight);
+    glDeleteTextures(1,&_texSlant);
+    glDeleteTextures(1,&_texVisibility);
+    glDeleteTextures(1,&_texNormal);
     // VBOs
     glDeleteBuffers(1,&_quad);
     glDeleteBuffers(1,&_gridBufferFaces);
     glDeleteBuffers(1,&_gridBufferPosition);
-
-    // delete your ids here
 }
 
 void Viewer::initFBO() {
@@ -153,6 +160,18 @@ void Viewer::initFBO() {
     glBindFramebuffer(GL_FRAMEBUFFER,_fbo3);
     glBindTexture(GL_TEXTURE_2D,_texSlant);
     glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT4,GL_TEXTURE_2D,_texSlant,0);
+
+    // tex visibility
+    glBindTexture(GL_TEXTURE_2D,_texVisibility);
+    glTexImage2D(GL_TEXTURE_2D,0,GL_RED, width(), height(),0,GL_RED,GL_FLOAT,NULL);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+
+    glBindFramebuffer(GL_FRAMEBUFFER,_fbo3);
+    glBindTexture(GL_TEXTURE_2D,_texVisibility);
+    glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT5,GL_TEXTURE_2D,_texVisibility,0);
 
 
     //tex depth camera
@@ -239,16 +258,18 @@ void Viewer::initShaders() {
     _rendNormalMatLoc     = glGetUniformLocation(_shaders[3]->id(),"normalMat");
     _rendLightLoc         = glGetUniformLocation(_shaders[3]->id(),"light");
     _mvpMatGBuffersLoc    = glGetUniformLocation(_shaders[3]->id(),"mvpMat");
-    _texDepthGBuffersLoc  = glGetUniformLocation(_shaders[3]->id(),"texDepth");
+    _texDepthLightGBuffersLoc  = glGetUniformLocation(_shaders[3]->id(),"texDepthLight");
 
     //gbuffers
     _texSlantLoc         = glGetFragDataLocation(_shaders[3]->id(),"outSlant");
+    _texVisibilityLoc    = glGetFragDataLocation(_shaders[3]->id(),"outVisibility");
     _texNormalLoc        = glGetFragDataLocation(_shaders[3]->id(),"outNormal");
     _texPositionLoc      = glGetFragDataLocation(_shaders[3]->id(),"outPosition");
     _texPositionLightLoc = glGetFragDataLocation(_shaders[3]->id(),"outPositionLight");
 
     //render
     _texSlantRenderLoc         = glGetUniformLocation(_shaders[4]->id(), "texSlant");
+    _texVisibilityRenderLoc    = glGetUniformLocation(_shaders[4]->id(), "texVisibility");
     _texNormalRenderLoc        = glGetUniformLocation(_shaders[4]->id(), "texNormal");
     _texPositionRenderLoc      = glGetUniformLocation(_shaders[4]->id(), "texPosition");
     _texPositionLightRenderLoc = glGetUniformLocation(_shaders[4]->id(), "texPositionLight");
@@ -340,6 +361,7 @@ void Viewer::paintGL() {
     glDepthMask(GL_TRUE);*/
 
     //3rd pass
+
     // *** TODO *** : activate FBO
     glBindFramebuffer(GL_FRAMEBUFFER,_fbo3);
     /*GLenum bufferlist [] = {
@@ -351,20 +373,29 @@ void Viewer::paintGL() {
         GL_COLOR_ATTACHMENT1 + _texNormalLoc,
         GL_COLOR_ATTACHMENT1 + _texPositionLoc,
         GL_COLOR_ATTACHMENT1 + _texPositionLightLoc,
-        GL_COLOR_ATTACHMENT1 + _texSlantLoc
+        GL_COLOR_ATTACHMENT1 + _texSlantLoc,
+        GL_COLOR_ATTACHMENT1 + _texVisibilityLoc
     };
-    glDrawBuffers(4, bufferlist);
+    glDrawBuffers(5, bufferlist);
 
     // clear buffers
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glViewport(0,0,width(),height());
 
-
     glUseProgram(_shaders[3]->id());
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D,_texHeight);
+    glUniform1i(_texHeightGBuffersLoc,0);
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D,_texDepthLight);
+    glUniform1i(_texDepthLightGBuffersLoc,1);
 
     drawSceneFromCamera();
 
+    // render
 
     glBindFramebuffer(GL_FRAMEBUFFER,0);
 
@@ -404,6 +435,10 @@ void Viewer::paintGL() {
     glActiveTexture(GL_TEXTURE6);
     glBindTexture(GL_TEXTURE_2D,_texColor);
     glUniform1i(_texColorLoc,6);
+
+    glActiveTexture(GL_TEXTURE7);
+    glBindTexture(GL_TEXTURE_2D,_texVisibility);
+    glUniform1i(_texVisibilityRenderLoc,7);
 
     glUniform3fv(_lightLoc,1,&(_light[0]));
 
@@ -487,14 +522,6 @@ void Viewer::drawSceneFromCamera() {
 
     const glm::mat4 mvpDepth = p*mv;
     glUniformMatrix4fv(_mvpMatGBuffersLoc,1,GL_FALSE,&mvpDepth[0][0]);
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D,_texHeight);
-    glUniform1i(_texHeightGBuffersLoc,0);
-
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D,_texDepthLight);
-    glUniform1i(_texDepthGBuffersLoc,1);
 
     // activate quad vertices
     glBindBuffer(GL_ARRAY_BUFFER,_gridBufferPosition);
