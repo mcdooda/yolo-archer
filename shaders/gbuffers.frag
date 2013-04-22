@@ -1,6 +1,5 @@
 #version 150
 
-//uniform sampler2DShadow texDepth;
 uniform sampler2DShadow texDepthLight;
 uniform vec3 light;
 
@@ -51,15 +50,13 @@ float getVisibility() {
 
     for (int i=0;i<16;i++){
         int ind = int(16.0*random(gl_FragCoord.xyy, i))%16;
-        if (texture(texDepthLight,vec3(shadCoord.xy+poissonDisk[ind] / 400,(shadCoord.z-bias)/shadCoord.w)) < 1){
+        if (texture(texDepthLight,vec3(shadCoord.xy+poissonDisk[ind] / 600,(shadCoord.z-bias)/shadCoord.w)) < 1){
             v-=0.1;
         }
     }
-
     if (v < 0)
         v = 0;
-
-    return v * 0.6 + 0.4;
+    return v;
 }
 
 void main() {

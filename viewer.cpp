@@ -15,7 +15,7 @@ Viewer::Viewer(char *,const QGLFormat &format)
       _mode(false),
       _showShadowMap(false),
       _ndResol(512),
-      _shadowMapResol(512) {
+      _shadowMapResol(1024) {
 
     setlocale(LC_ALL,"C");
 
@@ -86,7 +86,7 @@ void Viewer::initFBO() {
 
     // tex height
     glBindTexture(GL_TEXTURE_2D,_texHeight);
-    glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA, _ndResol, _ndResol,0,GL_RGBA,GL_FLOAT,NULL);
+    glTexImage2D(GL_TEXTURE_2D,0,GL_RED, _ndResol, _ndResol,0,GL_RED,GL_FLOAT,NULL);
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
@@ -308,6 +308,8 @@ GLuint Viewer::loadTexture2D(const char* filename) {
 
 void Viewer::paintGL() {
 
+    // premiere passe : bruit de perlin
+
     // default : compute a 512*512 noise texture
     glBindFramebuffer(GL_FRAMEBUFFER,_fbo);
     glDrawBuffer(GL_COLOR_ATTACHMENT0);
@@ -342,13 +344,12 @@ void Viewer::paintGL() {
     glBindFramebuffer(GL_FRAMEBUFFER,0);
 
 
-    // 2nd pass
+    // deuxieme passe : shadow map
 
     glBindFramebuffer(GL_FRAMEBUFFER,_fbo2);
     glViewport(0,0,_shadowMapResol, _shadowMapResol);
     glEnable(GL_DEPTH_TEST);
     glDepthMask(GL_TRUE);
-
     glDrawBuffer(GL_NONE);
     //glClear(GL_DEPTH_BUFFER_BIT);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -356,19 +357,10 @@ void Viewer::paintGL() {
     drawSceneFromLight();
     glBindFramebuffer(GL_FRAMEBUFFER,0);
 
-/*
-    glEnable(GL_DEPTH_TEST);
-    glDepthMask(GL_TRUE);*/
+    // troisieme passe : normales dans le point de vue de la camera, position, position du point de vue de la lumiere TODO /!\ a supprimer, la pente et la visibilite
 
-    //3rd pass
-
-    // *** TODO *** : activate FBO
     glBindFramebuffer(GL_FRAMEBUFFER,_fbo3);
-    /*GLenum bufferlist [] = {
-        GL_COLOR_ATTACHMENT0 + _textNormalLoc,
-        GL_COLOR_ATTACHMENT0 + _textPositionLoc,
-        GL_COLOR_ATTACHMENT0 + _textSlantLoc,
-    };*/
+    glViewport(0,0,width(),height());
     GLenum bufferlist [] = {
         GL_COLOR_ATTACHMENT1 + _texNormalLoc,
         GL_COLOR_ATTACHMENT1 + _texPositionLoc,
@@ -377,12 +369,7 @@ void Viewer::paintGL() {
         GL_COLOR_ATTACHMENT1 + _texVisibilityLoc
     };
     glDrawBuffers(5, bufferlist);
-
-    // clear buffers
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    glViewport(0,0,width(),height());
-
     glUseProgram(_shaders[3]->id());
 
     glActiveTexture(GL_TEXTURE0);
@@ -395,7 +382,7 @@ void Viewer::paintGL() {
 
     drawSceneFromCamera();
 
-    // render
+    // quatrieme passe : rendu final
 
     glBindFramebuffer(GL_FRAMEBUFFER,0);
 
@@ -461,7 +448,7 @@ void Viewer::paintGL() {
         //DEBUGAGE
 
         //Affichage d'une texture
-        glViewport(0,0,_shadowMapResol,_shadowMapResol);
+        glViewport(0,0,_shadowMapResol, _shadowMapResol);
         glUseProgram(_shaders[1]->id());
         glClear(GL_DEPTH_BUFFER_BIT);
 

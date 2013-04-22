@@ -8,5 +8,4 @@ void main() {
   // *** TODO: simply display the (uniform) shadow map for testing ***
     ivec2 loc = ivec2(gl_FragCoord.xy);
     outBuffer = vec4(texelFetch(texHeight,loc,0).xyz,1.0);
-    //outBuffer.r = 1;
 }

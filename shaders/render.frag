@@ -4,7 +4,7 @@ out vec4 outBuffer;
 uniform sampler2D texNormal;
 uniform sampler2D texSlant;
 uniform sampler2D texPosition;
-uniform sampler2D texPositionLight;
+//uniform sampler2D texPositionLight;
 uniform sampler2D texDepthCamera;
 uniform sampler2DShadow texDepthLight;
 uniform sampler2D texColor;
@@ -37,26 +37,6 @@ float random(vec3 seed, int i){
 }
 
 float getVisibility() {
-    ivec2 screenSize = textureSize(texNormal, 0);
-    ivec2 loc = ivec2(gl_FragCoord.xy);
-    vec4 shadCoord = texelFetch(texPositionLight,loc,0);
-    float bias = 0.01;
-
-    float vMean = 0;
-    int i = 0;
-
-    float v = 0;
-    for (int i=0;i<16;i++){
-        int ind = int(16.0*random(gl_FragCoord.xyy, i))%16;
-        float t = texture(texDepthLight,vec3(shadCoord.xy + poissonDisk[ind] / 300,(shadCoord.z-bias)/shadCoord.w));
-        v += t;
-    }
-    v = v / 16;
-
-    return v * 0.4 + 0.6;
-}
-
-float getVisibility2() {
     ivec2 loc = ivec2(gl_FragCoord.xy);
     return texelFetch(texVisibility, loc, 0).r;
 }
@@ -92,7 +72,15 @@ void main(void)
 
     vec4 color = fragmentColor * vec4(ambientColor + diffuseColor*dot(n,light) + specularColor*pow(dot(reflect(light,n),r),2),1.0);
 
-    float v = getVisibility2();
+    float v = getVisibility();
 
-    outBuffer = color * v;
+    color = color * (0.6 + 0.4 * v);
+
+    float depth = pow(texelFetch(texDepthCamera, loc, 0).r, 600) * 5;
+    depth = clamp(depth, 0, 1);
+    vec4 fogColor = vec4(0.5);
+
+    color = color * (1 - depth) + fogColor * depth;
+
+    outBuffer = color;
 }

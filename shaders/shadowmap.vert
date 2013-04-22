@@ -17,6 +17,5 @@ float altitude(vec2 p) {
 void main() {
     pos = position;
     pos.z = altitude(pos.xy / 2 + 0.5);
-  // *** TODO: update vertex position according to the (light space) modelviewprojection matrix  ***
     gl_Position = mvpMat * vec4(pos, 1.0);
 }
